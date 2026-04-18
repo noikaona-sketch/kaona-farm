@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>เขียวทอง ฟาร์ม — Admin</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { font-family: 'Kanit', sans-serif; -webkit-tap-highlight-color: transparent; }
+    .page { display: none; }
+    .page.active { display: block; }
+    .tab-active { color: #1b4332; border-bottom: 3px solid #1b4332; }
+    .gradient-main { background: linear-gradient(135deg, #1b4332 0%, #2d6a4f 100%); }
+    .btn-approve { background: linear-gradient(135deg, #22c55e, #16a34a); }
+    .btn-reject  { background: linear-gradient(135deg, #f87171, #dc2626); }
+    .card { background: #fff; border-radius: 24px; border: 1px solid #e8f5e9; box-shadow: 0 2px 12px rgba(0,0,0,0.06); }
+    .badge-pending  { background: #fff3e0; color: #e65100; }
+    .badge-approved { background: #e8f5e9; color: #1b4332; }
+    .badge-rejected { background: #ffebee; color: #c62828; }
+    .badge-leader   { background: #e3f2fd; color: #1565c0; }
+    .pulse { animation: pulse 2s infinite; }
+    @keyframes pulse {
+      0%,100% { opacity: 1; }
+      50%      { opacity: .5; }
+    }
+    input:focus, select:focus, textarea:focus { outline: 2px solid #2d6a4f; }
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-thumb { background: #c8e6c9; border-radius: 4px; }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800">
+
+<!-- ════ Loading Screen ════ -->
+<div id="screen-loading" class="fixed inset-0 gradient-main flex flex-col items-center justify-center z-[999]">
+  <div class="text-6xl mb-4">🌽</div>
+  <p class="text-white font-bold text-lg">เขียวทอง ฟาร์ม</p>
+  <p class="text-green-300 text-xs mt-2 pulse">กำลังตรวจสอบสิทธิ์...</p>
+</div>
+
+<!-- ════ Access Denied Screen ════ -->
+<div id="screen-denied" class="fixed inset-0 bg-slate-50 flex flex-col items-center justify-center z-[998] hidden px-8 text-center">
+  <div class="text-6xl mb-4">🚫</div>
+  <h2 class="text-xl font-bold text-slate-700">ไม่มีสิทธิ์เข้าถึง</h2>
+  <p class="text-slate-400 text-sm mt-2 leading-relaxed">
+    หน้านี้สำหรับ Admin เท่านั้น<br>
+    กรุณาติดต่อผู้ดูแลระบบค่ะ
+  </p>
+  <button onclick="liff.closeWindow()"
+    class="mt-8 gradient-main text-white px-8 py-3 rounded-2xl font-bold shadow-lg">
+    ปิดหน้าต่างนี้
+  </button>
+</div>
+
+<div class="max-w-md mx-auto min-h-screen pb-24 relative">
+
+  <!-- ════════════════════════════════════
+       HEADER
+  ════════════════════════════════════ -->
+  <header class="gradient-main text-white px-5 pt-8 pb-6 rounded-b-[36px] shadow-xl">
+    <div class="flex justify-between items-start mb-6">
+      <div>
+        <p class="text-green-300 text-xs uppercase tracking-widest font-light">Admin Console</p>
+        <h1 class="text-2xl font-bold mt-0.5">เขียวทอง ฟาร์ม 🌽</h1>
+        <p class="text-green-200 text-xs mt-1" id="admin-name">โครงการไม่เผาซัง</p>
+      </div>
+      <button onclick="loadDashboard()" class="bg-white/15 border border-white/20 p-2.5 rounded-2xl active:scale-95 transition-transform">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>
+      </button>
+    </div>
+
+    <!-- Stats Bar -->
+    <div class="grid grid-cols-4 gap-2" id="stats-bar">
+      <div class="bg-white/10 border border-white/10 rounded-2xl p-3 text-center">
+        <p class="text-[10px] text-green-200 uppercase">รออนุมัติ</p>
+        <p class="text-xl font-black" id="stat-pending">—</p>
+      </div>
+      <div class="bg-white/10 border border-white/10 rounded-2xl p-3 text-center">
+        <p class="text-[10px] text-green-200 uppercase">สมาชิก</p>
+        <p class="text-xl font-black" id="stat-members">—</p>
+      </div>
+      <div class="bg-white/10 border border-white/10 rounded-2xl p-3 text-center">
+        <p class="text-[10px] text-green-200 uppercase">กลุ่ม</p>
+        <p class="text-xl font-black" id="stat-groups">—</p>
+      </div>
+      <div class="bg-white/10 border border-white/10 rounded-2xl p-3 text-center">
+        <p class="text-[10px] text-green-200 uppercase">อนุมัติแล้ว</p>
+        <p class="text-xl font-black" id="stat-approved">—</p>
+      </div>
+    </div>
+  </header>
+
+  <!-- ════════════════════════════════════
+       TAB NAV
+  ════════════════════════════════════ -->
+  <nav class="bg-white border-b border-slate-100 flex sticky top-0 z-20 shadow-sm">
+    <button onclick="showTab('approve')" id="tab-approve" class="flex-1 py-4 text-xs font-bold text-slate-400 tab-btn transition-colors">
+      ✅ อนุมัติ
+    </button>
+    <button onclick="showTab('groups')" id="tab-groups" class="flex-1 py-4 text-xs font-bold text-slate-400 tab-btn transition-colors">
+      👥 กลุ่ม
+    </button>
+    <button onclick="showTab('members')" id="tab-members" class="flex-1 py-4 text-xs font-bold text-slate-400 tab-btn transition-colors">
+      🌾 สมาชิก
+    </button>
+  </nav>
+
+  <!-- ════════════════════════════════════
+       TAB: อนุมัติ
+  ════════════════════════════════════ -->
+  <div id="page-approve" class="page p-4 space-y-4">
+    <div class="flex items-center justify-between mb-1">
+      <h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest">รอการอนุมัติขั้นสุดท้าย</h3>
+      <span id="approve-count" class="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full font-bold"></span>
+    </div>
+    <div id="approve-list">
+      <div class="text-center py-16 text-slate-300">
+        <div class="text-5xl mb-3">⏳</div>
+        <p class="text-sm">กำลังโหลด...</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════
+       TAB: กลุ่ม
+  ════════════════════════════════════ -->
+  <div id="page-groups" class="page p-4 space-y-4">
+    <h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">กลุ่มทั้งหมด</h3>
+    <div id="groups-list">
+      <div class="text-center py-16 text-slate-300">
+        <div class="text-5xl mb-3">👥</div>
+        <p class="text-sm">กำลังโหลด...</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════
+       TAB: สมาชิก
+  ════════════════════════════════════ -->
+  <div id="page-members" class="page p-4">
+    <!-- Search -->
+    <div class="relative mb-4">
+      <input type="text" id="member-search" placeholder="ค้นหาชื่อ..." oninput="filterMembers()"
+        class="w-full p-4 pl-11 rounded-2xl border border-slate-200 bg-white text-sm focus:border-green-400 transition-colors">
+      <svg class="absolute left-3.5 top-4 text-slate-300" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+    </div>
+    <!-- Filter -->
+    <div class="flex gap-2 mb-4 overflow-x-auto pb-1">
+      <button onclick="setMemberFilter('all')" id="filter-all" class="filter-btn flex-shrink-0 px-4 py-2 rounded-xl text-xs font-bold bg-green-800 text-white transition-colors">ทั้งหมด</button>
+      <button onclick="setMemberFilter('active')" id="filter-active" class="filter-btn flex-shrink-0 px-4 py-2 rounded-xl text-xs font-bold bg-slate-100 text-slate-500 transition-colors">อนุมัติแล้ว</button>
+      <button onclick="setMemberFilter('pending')" id="filter-pending" class="filter-btn flex-shrink-0 px-4 py-2 rounded-xl text-xs font-bold bg-slate-100 text-slate-500 transition-colors">รอดำเนินการ</button>
+      <button onclick="setMemberFilter('leader')" id="filter-leader" class="filter-btn flex-shrink-0 px-4 py-2 rounded-xl text-xs font-bold bg-slate-100 text-slate-500 transition-colors">หัวหน้ากลุ่ม</button>
+    </div>
+    <div id="members-list" class="space-y-3">
+      <div class="text-center py-16 text-slate-300">
+        <div class="text-5xl mb-3">🌾</div>
+        <p class="text-sm">กำลังโหลด...</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════
+       DETAIL MODAL: อนุมัติรายละเอียด
+  ════════════════════════════════════ -->
+  <div id="modal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm hidden overflow-y-auto">
+    <div class="min-h-screen flex items-end md:items-center justify-center p-0 md:p-4">
+      <div class="bg-white w-full max-w-md rounded-t-[32px] md:rounded-[32px] pb-8 max-h-[92vh] overflow-y-auto" id="modal-content">
+        <!-- filled by JS -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast"
+    class="fixed bottom-28 left-1/2 -translate-x-1/2 text-white px-5 py-3 rounded-full shadow-2xl z-[200] opacity-0 transition-all duration-300 text-sm font-bold pointer-events-none whitespace-nowrap">
+  </div>
+
+</div><!-- end max-w -->
+
+<!-- ════════════════════════════════════
+     SCRIPTS
+════════════════════════════════════ -->
+<script>
+const API      = ''           // เปลี่ยนเป็น URL backend เช่น https://kaona-api.vercel.app
+const LIFF_ID  = 'YOUR_ADMIN_LIFF_ID'  // ← ใส่ LIFF ID ของ KaonaAdmin
+
+let lineUid    = null
+let adminName  = ''
+
+// ════════════════════════════════════
+// LIFF INIT
+// ════════════════════════════════════
+async function initLiff() {
+  try {
+    await liff.init({ liffId: LIFF_ID })
+
+    if (!liff.isLoggedIn()) {
+      liff.login()
+      return
+    }
+
+    const profile = await liff.getProfile()
+    lineUid   = profile.userId
+    adminName = profile.displayName
+
+    // เช็คว่าเป็น admin จริงไหม
+    const res  = await fetch(`${API}/api/members/line/${lineUid}`)
+    if (!res.ok) throw new Error('ไม่พบข้อมูลสมาชิก')
+
+    const member = await res.json()
+    if (member.role !== 'admin') {
+      document.getElementById('screen-loading').classList.add('hidden')
+      document.getElementById('screen-denied').classList.remove('hidden')
+      return
+    }
+
+    // แสดงชื่อใน header
+    document.getElementById('admin-name').textContent = adminName
+
+    // ซ่อน loading → เข้าแอป
+    document.getElementById('screen-loading').classList.add('hidden')
+    loadDashboard()
+    showTab('approve')
+
+  } catch (err) {
+    document.getElementById('screen-loading').innerHTML = `
+      <div class="text-5xl mb-4">❌</div>
+      <p class="text-white font-bold">เกิดข้อผิดพลาด</p>
+      <p class="text-green-300 text-xs mt-2">${err.message}</p>
+      <button onclick="initLiff()" class="mt-6 bg-white text-green-800 px-6 py-2 rounded-xl font-bold text-sm">ลองใหม่</button>
+    `
+  }
+}
+
+let allMembers = []
+let memberFilter = 'all'
+
+// ── Tabs ──
+function showTab(tab) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'))
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('tab-active'))
+  document.getElementById('page-' + tab).classList.add('active')
+  document.getElementById('tab-' + tab).classList.add('tab-active')
+
+  if (tab === 'approve')  loadPending()
+  if (tab === 'groups')   loadGroups()
+  if (tab === 'members')  loadMembers()
+}
+
+// ── Dashboard stats ──
+async function loadDashboard() {
+  try {
+    const res  = await fetch(`${API}/api/admin/dashboard`)
+    const data = await res.json()
+    if (!data.success) return
+    const s = data.stats
+    document.getElementById('stat-pending').textContent  = s.pending_admin
+    document.getElementById('stat-members').textContent  = s.total_members
+    document.getElementById('stat-groups').textContent   = s.total_groups
+    document.getElementById('stat-approved').textContent = s.approved
+  } catch { /* silent */ }
+}
+
+// ════════════════════════════════════
+// TAB: อนุมัติ
+// ════════════════════════════════════
+async function loadPending() {
+  const el = document.getElementById('approve-list')
+  el.innerHTML = loadingHTML('⏳', 'กำลังโหลดรายการ...')
+  try {
+    const res  = await fetch(`${API}/api/admin/pending`)
+    const data = await res.json()
+    document.getElementById('approve-count').textContent = data.total ? `${data.total} รายการ` : ''
+
+    if (!data.registrations?.length) {
+      el.innerHTML = emptyHTML('🎉', 'ไม่มีรายการรอดำเนินการ', 'ทุกคำขอได้รับการอนุมัติแล้ว')
+      return
+    }
+    el.innerHTML = data.registrations.map(regCard).join('')
+  } catch (err) {
+    el.innerHTML = errorHTML(err.message)
+  }
+}
+
+function regCard(r) {
+  const ocr  = r.ocr_data || {}
+  const name = r.full_name || ocr.farmer_name || 'ไม่ระบุชื่อ'
+  const date = thDate(r.created_at)
+  const initial = name.charAt(0) || '?'
+  return `
+    <div class="card p-4 space-y-3 cursor-pointer active:scale-[0.98] transition-transform"
+         onclick='openModal(${JSON.stringify(r).replace(/'/g,"&#39;")})'>
+      <div class="flex items-center gap-3">
+        <div class="w-11 h-11 rounded-2xl gradient-main text-white flex items-center justify-center text-lg font-bold flex-shrink-0">${initial}</div>
+        <div class="flex-1 min-w-0">
+          <p class="font-bold text-sm truncate">${name}</p>
+          <p class="text-[11px] text-slate-400">📞 ${r.phone || ocr.phone || '-'} &nbsp;·&nbsp; 🚗 ${r.plate_number || ocr.plate_number || '-'}</p>
+        </div>
+        <div>
+          <span class="badge-pending text-[10px] font-bold px-2 py-0.5 rounded-full">รออนุมัติ</span>
+        </div>
+      </div>
+      <div class="flex justify-between text-[11px] text-slate-400 border-t border-slate-50 pt-2">
+        <span>📅 ${date}</span>
+        ${r.latitude ? `<span class="text-green-700 font-medium">📍 มีพิกัดแล้ว</span>` : '<span>📍 ไม่มีพิกัด</span>'}
+      </div>
+      <div class="text-xs text-indigo-600 font-medium text-right">กดดูรายละเอียด ›</div>
+    </div>`
+}
+
+// ════════════════════════════════════
+// MODAL รายละเอียด
+// ════════════════════════════════════
+function openModal(reg) {
+  const ocr  = reg.ocr_data || {}
+  const name = reg.full_name || ocr.farmer_name || 'ไม่ระบุ'
+
+  const rows = [
+    ['เลขบิล',       ocr.bill_no],
+    ['ชื่อเกษตรกร', name],
+    ['เบอร์โทร',     reg.phone || ocr.phone],
+    ['ทะเบียนรถ',   reg.plate_number || ocr.plate_number],
+    ['น้ำหนักสุทธิ',ocr.weight_net    ? `${ocr.weight_net} กก.`    : null],
+    ['ความชื้น',     ocr.moisture      ? `${ocr.moisture} %`        : null],
+    ['ราคา/กก.',     ocr.price_per_kg  ? `${ocr.price_per_kg} บาท`  : null],
+    ['ยอดเงินสุทธิ', ocr.amount_total  ? `${ocr.amount_total} บาท`  : null],
+  ].filter(r => r[1])
+
+  const mapUrl = reg.latitude && reg.longitude
+    ? `https://www.google.com/maps?q=${reg.latitude},${reg.longitude}`
+    : null
+
+  document.getElementById('modal-content').innerHTML = `
+    <!-- Handle -->
+    <div class="flex justify-center pt-4 pb-2">
+      <div class="w-10 h-1 bg-slate-200 rounded-full"></div>
+    </div>
+
+    <div class="px-5 pb-4 border-b border-slate-100 flex items-center gap-3">
+      <div class="w-12 h-12 rounded-2xl gradient-main text-white flex items-center justify-center text-xl font-bold">${name.charAt(0)}</div>
+      <div>
+        <p class="font-bold">${name}</p>
+        <p class="text-xs text-slate-400">ยื่นเมื่อ ${thDate(reg.created_at)}</p>
+      </div>
+    </div>
+
+    <div class="px-5 pt-4 space-y-5">
+
+      <!-- ข้อมูลบิล -->
+      <div>
+        <p class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">🧾 ข้อมูลจากบิล</p>
+        <div class="card p-4 divide-y divide-slate-50">
+          ${rows.map(([k,v]) => `
+            <div class="flex justify-between py-2">
+              <span class="text-xs text-slate-400">${k}</span>
+              <span class="text-xs font-bold">${v}</span>
+            </div>`).join('')}
+        </div>
+      </div>
+
+      <!-- รูปบิล -->
+      ${reg.bill_photo_url ? `
+      <div>
+        <p class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">📄 รูปบิล</p>
+        <img src="${reg.bill_photo_url}" class="w-full rounded-2xl cursor-pointer"
+          onclick="window.open('${reg.bill_photo_url}','_blank')">
+      </div>` : ''}
+
+      <!-- รูปแปลง -->
+      ${reg.plot_photo_url ? `
+      <div>
+        <p class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">🌾 รูปแปลง</p>
+        <img src="${reg.plot_photo_url}" class="w-full rounded-2xl cursor-pointer"
+          onclick="window.open('${reg.plot_photo_url}','_blank')">
+      </div>` : ''}
+
+      <!-- พิกัด -->
+      ${reg.latitude && reg.longitude ? `
+      <div>
+        <p class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">📍 พิกัดแปลง</p>
+        <div class="card p-3 flex items-center gap-3">
+          <span class="text-2xl">📍</span>
+          <div class="flex-1">
+            <p class="text-xs font-mono font-bold text-green-800">
+              ${Number(reg.latitude).toFixed(6)}°N &nbsp; ${Number(reg.longitude).toFixed(6)}°E
+            </p>
+          </div>
+          <a href="${mapUrl}" target="_blank"
+            class="bg-blue-600 text-white text-xs px-3 py-2 rounded-xl font-bold">แผนที่</a>
+        </div>
+      </div>` : ''}
+
+      <!-- Action buttons -->
+      <div class="pt-2 space-y-3">
+        <button onclick="adminApprove('${reg.reg_id}', '${name}')"
+          class="btn-approve w-full text-white font-bold py-4 rounded-2xl shadow-lg shadow-green-100 active:scale-95 transition-transform text-sm">
+          ✅ อนุมัติคำขอนี้
+        </button>
+        <button onclick="showRejectForm('${reg.reg_id}', '${name}')"
+          class="w-full bg-red-50 text-red-600 border border-red-200 font-bold py-3.5 rounded-2xl active:scale-95 transition-transform text-sm">
+          ❌ ปฏิเสธ
+        </button>
+        <div id="reject-form-${reg.reg_id}" class="hidden">
+          <textarea id="reject-reason-${reg.reg_id}" rows="3" placeholder="ระบุเหตุผลที่ปฏิเสธ..."
+            class="w-full border border-red-200 rounded-2xl p-3 text-sm resize-none focus:border-red-400 outline-none"></textarea>
+          <button onclick="adminReject('${reg.reg_id}', '${name}')"
+            class="btn-reject w-full text-white font-bold py-3 rounded-2xl mt-2 active:scale-95 text-sm">
+            ยืนยันปฏิเสธ
+          </button>
+        </div>
+        <button onclick="closeModal()" class="w-full text-slate-400 py-2 text-sm">ยกเลิก / ปิด</button>
+      </div>
+
+    </div>`
+
+  document.getElementById('modal').classList.remove('hidden')
+  document.getElementById('modal').onclick = (e) => {
+    if (e.target === document.getElementById('modal')) closeModal()
+  }
+}
+
+function showRejectForm(regId) {
+  document.getElementById(`reject-form-${regId}`).classList.toggle('hidden')
+}
+
+function closeModal() {
+  document.getElementById('modal').classList.add('hidden')
+}
+
+async function adminApprove(regId, name) {
+  if (!confirm(`อนุมัติคำขอของ ${name} ใช่ไหมคะ?`)) return
+  try {
+    const res  = await fetch(`${API}/api/admin/approve/${regId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ line_uid: lineUid }),
+    })
+    const data = await res.json()
+    if (!res.ok) throw new Error(data.error)
+    showToast(`✅ อนุมัติ ${name} เรียบร้อย`, '#1b4332')
+    closeModal()
+    loadPending()
+    loadDashboard()
+  } catch (err) {
+    showToast('❌ ' + err.message, '#c62828')
+  }
+}
+
+async function adminReject(regId, name) {
+  const reason = document.getElementById(`reject-reason-${regId}`)?.value?.trim()
+  if (!reason) { showToast('กรุณาระบุเหตุผล', '#c62828'); return }
+  try {
+    const res  = await fetch(`${API}/api/admin/reject/${regId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reject_reason: reason }),
+    })
+    const data = await res.json()
+    if (!res.ok) throw new Error(data.error)
+    showToast(`❌ ปฏิเสธคำขอของ ${name} แล้ว`, '#c62828')
+    closeModal()
+    loadPending()
+    loadDashboard()
+  } catch (err) {
+    showToast('❌ ' + err.message, '#c62828')
+  }
+}
+
+// ════════════════════════════════════
+// TAB: กลุ่ม
+// ════════════════════════════════════
+async function loadGroups() {
+  const el = document.getElementById('groups-list')
+  el.innerHTML = loadingHTML('👥', 'กำลังโหลดกลุ่ม...')
+  try {
+    const res  = await fetch(`${API}/api/admin/groups`)
+    const data = await res.json()
+    if (!data.groups?.length) {
+      el.innerHTML = emptyHTML('👥', 'ยังไม่มีกลุ่ม', 'สร้างกลุ่มได้ในระบบหลังบ้าน')
+      return
+    }
+    el.innerHTML = data.groups.map(groupCard).join('')
+  } catch (err) {
+    el.innerHTML = errorHTML(err.message)
+  }
+}
+
+function groupCard(g) {
+  const leader       = g.leader
+  const activeCount  = g.members.filter(m => m.status === 'active').length
+  const pendingCount = g.members.filter(m => m.status !== 'active').length
+
+  return `
+    <div class="card p-5 space-y-4">
+      <div class="flex items-start gap-3">
+        <div class="w-11 h-11 rounded-2xl gradient-main text-white flex items-center justify-center text-lg font-bold flex-shrink-0">
+          ${g.group_name.charAt(0)}
+        </div>
+        <div class="flex-1">
+          <p class="font-bold">${g.group_name}</p>
+          <p class="text-xs text-slate-400">${g.province || ''} ${g.district ? '· ' + g.district : ''}</p>
+        </div>
+        <div class="text-right">
+          <p class="text-xl font-black text-green-800">${g.total_members}</p>
+          <p class="text-[10px] text-slate-400">สมาชิก</p>
+        </div>
+      </div>
+
+      <!-- หัวหน้ากลุ่ม -->
+      ${leader ? `
+      <div class="bg-blue-50 rounded-2xl p-3 flex items-center gap-3">
+        <span class="text-xl">👑</span>
+        <div>
+          <p class="text-xs font-bold text-blue-800">${leader.full_name}</p>
+          <p class="text-[10px] text-blue-500">หัวหน้ากลุ่ม</p>
+        </div>
+      </div>` : `
+      <div class="bg-orange-50 rounded-2xl p-3 text-center text-xs text-orange-500 font-medium">
+        ⚠️ ยังไม่มีหัวหน้ากลุ่ม
+      </div>`}
+
+      <!-- สถานะสมาชิก -->
+      <div class="grid grid-cols-2 gap-2">
+        <div class="bg-green-50 rounded-2xl p-3 text-center">
+          <p class="text-lg font-black text-green-700">${activeCount}</p>
+          <p class="text-[10px] text-green-500">อนุมัติแล้ว</p>
+        </div>
+        <div class="bg-orange-50 rounded-2xl p-3 text-center">
+          <p class="text-lg font-black text-orange-600">${pendingCount}</p>
+          <p class="text-[10px] text-orange-400">รอดำเนินการ</p>
+        </div>
+      </div>
+
+      <!-- รายชื่อสมาชิก (compact) -->
+      ${g.members.length ? `
+      <details class="cursor-pointer">
+        <summary class="text-xs text-slate-400 font-bold uppercase tracking-widest list-none flex items-center gap-1">
+          <span>▸</span> ดูรายชื่อสมาชิก
+        </summary>
+        <div class="mt-3 space-y-2">
+          ${g.members.map(m => `
+            <div class="flex items-center gap-3 py-2 border-b border-slate-50 last:border-0">
+              <div class="w-7 h-7 rounded-xl gradient-main text-white text-xs font-bold flex items-center justify-center flex-shrink-0">
+                ${m.full_name.charAt(0)}
+              </div>
+              <div class="flex-1 min-w-0">
+                <p class="text-xs font-bold truncate">${m.full_name}</p>
+              </div>
+              <span class="text-[10px] px-2 py-0.5 rounded-full font-bold flex-shrink-0
+                ${m.role === 'leader' ? 'badge-leader' : m.status === 'active' ? 'badge-approved' : 'badge-pending'}">
+                ${m.role === 'leader' ? '👑 หัวหน้า' : m.status === 'active' ? 'อนุมัติแล้ว' : 'รอดำเนินการ'}
+              </span>
+            </div>`).join('')}
+        </div>
+      </details>` : ''}
+    </div>`
+}
+
+// ════════════════════════════════════
+// TAB: สมาชิก
+// ════════════════════════════════════
+async function loadMembers() {
+  const el = document.getElementById('members-list')
+  el.innerHTML = loadingHTML('🌾', 'กำลังโหลดสมาชิก...')
+  try {
+    const res  = await fetch(`${API}/api/admin/members`)
+    const data = await res.json()
+    allMembers = data.members || []
+    renderMembers()
+  } catch (err) {
+    el.innerHTML = errorHTML(err.message)
+  }
+}
+
+function renderMembers() {
+  const el     = document.getElementById('members-list')
+  const search = document.getElementById('member-search')?.value?.toLowerCase() || ''
+  let list     = allMembers
+
+  if (memberFilter === 'leader') list = list.filter(m => m.role === 'leader')
+  else if (memberFilter !== 'all') list = list.filter(m => m.status === memberFilter)
+  if (search) list = list.filter(m => m.full_name?.toLowerCase().includes(search))
+
+  if (!list.length) {
+    el.innerHTML = emptyHTML('🔍', 'ไม่พบสมาชิก', 'ลองเปลี่ยนคำค้นหาหรือตัวกรอง')
+    return
+  }
+
+  el.innerHTML = list.map(m => `
+    <div class="card p-4 flex items-center gap-3">
+      <div class="w-11 h-11 rounded-2xl gradient-main text-white font-bold text-base flex items-center justify-center flex-shrink-0">
+        ${m.full_name.charAt(0)}
+      </div>
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center gap-2 flex-wrap">
+          <p class="font-bold text-sm">${m.full_name}</p>
+          ${m.role === 'leader' ? '<span class="badge-leader text-[10px] px-1.5 py-0.5 rounded-full font-bold">👑 หัวหน้า</span>' : ''}
+        </div>
+        <p class="text-[11px] text-slate-400 mt-0.5">
+          📞 ${m.phone || '-'}
+          ${m.groups?.group_name ? ` &nbsp;·&nbsp; 👥 ${m.groups.group_name}` : ''}
+        </p>
+        <p class="text-[10px] text-slate-300 mt-0.5">สมัคร ${thDate(m.created_at)}</p>
+      </div>
+      <span class="text-[10px] px-2 py-1 rounded-xl font-bold flex-shrink-0
+        ${m.status === 'active' ? 'badge-approved' : m.status === 'rejected' ? 'badge-rejected' : 'badge-pending'}">
+        ${m.status === 'active' ? 'อนุมัติแล้ว' : m.status === 'rejected' ? 'ถูกปฏิเสธ' : 'รอดำเนินการ'}
+      </span>
+    </div>`).join('')
+}
+
+function filterMembers() { renderMembers() }
+
+function setMemberFilter(f) {
+  memberFilter = f
+  document.querySelectorAll('.filter-btn').forEach(b => {
+    b.classList.remove('bg-green-800', 'text-white')
+    b.classList.add('bg-slate-100', 'text-slate-500')
+  })
+  const btn = document.getElementById('filter-' + f)
+  btn.classList.add('bg-green-800', 'text-white')
+  btn.classList.remove('bg-slate-100', 'text-slate-500')
+  renderMembers()
+}
+
+// ════════════════════════════════════
+// UTILS
+// ════════════════════════════════════
+function thDate(iso) {
+  if (!iso) return '-'
+  return new Date(iso).toLocaleDateString('th-TH', {
+    day: 'numeric', month: 'short', year: '2-digit', hour: '2-digit', minute: '2-digit',
+  })
+}
+
+function showToast(msg, bg = '#1b4332') {
+  const t = document.getElementById('toast')
+  t.textContent = msg
+  t.style.backgroundColor = bg
+  t.style.opacity = '1'
+  t.style.transform = 'translate(-50%, 0)'
+  setTimeout(() => {
+    t.style.opacity = '0'
+  }, 3000)
+}
+
+function loadingHTML(icon, msg) {
+  return `<div class="text-center py-16 text-slate-300"><div class="text-5xl mb-3 pulse">${icon}</div><p class="text-sm">${msg}</p></div>`
+}
+function emptyHTML(icon, title, sub) {
+  return `<div class="text-center py-16"><div class="text-5xl mb-3">${icon}</div><p class="font-bold text-slate-600">${title}</p><p class="text-xs text-slate-400 mt-1">${sub}</p></div>`
+}
+function errorHTML(msg) {
+  return `<div class="text-center py-12 text-red-400"><div class="text-4xl mb-2">❌</div><p class="text-sm">${msg}</p></div>`
+}
+
+// ── โหลด LIFF SDK แบบ dynamic แล้วค่อย init ──
+window.onload = () => {
+  const script  = document.createElement('script')
+  script.src    = 'https://static.line-scdn.net/liff/edge/2/sdk.js'
+  script.onload = () => initLiff()
+  script.onerror = () => {
+    document.getElementById('screen-loading').innerHTML = `
+      <div class="text-5xl mb-4">❌</div>
+      <p class="text-white font-bold">โหลด LIFF ไม่ได้</p>
+      <p class="text-green-300 text-xs mt-2">กรุณาเปิดผ่าน LINE นะคะ</p>
+      <button onclick="location.reload()" class="mt-6 bg-white text-green-800 px-6 py-2 rounded-xl font-bold text-sm">ลองใหม่</button>
+    `
+  }
+  document.head.appendChild(script)
+}
+</script>
+
+</body>
+</html>
